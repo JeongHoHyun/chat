@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat Application</title>
+    <style>
+        #chat {
+            max-height: 300px;
+            overflow-y: scroll;
+            border: 1px solid #ccc;
+            padding: 10px;
+        }
+        .message {
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+<div id="chat"></div>
+<input type="text" id="messageInput" placeholder="Enter your message">
+<button onclick="sendMessage()">Send</button>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.5.1/sockjs.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+<script>
+    var stompClient = null;
+
+    function connect() {
+        var socket = new SockJS('/ws');
+        stompClient = Stomp.over(socket);
+        stompClient.connect({}, function (frame) {
+            console.log('Connected: ' + frame);
+            stompClient.subscribe('/topic/public', function (message) {
+                showMessage(JSON.parse(message.body));
+            });
+        }, function (error) {
+            console.error('STOMP error', error);
+        });
+    }
+
+    function sendMessage() {
+        var messageContent = document.getElementById('messageInput').value;
+        if (messageContent && stompClient) {
+            stompClient.send("/app/chat.sendMessage", {}, JSON.stringify({ 'content': messageContent, 'sender': 'User' }));
+        }
+    }
+
+    function showMessage(message) {
+        var chat = document.getElementById('chat');
+        var messageElement = document.createElement('div');
+        messageElement.className = 'message';
+        messageElement.innerText = message.sender + ": " + message.content;
+        chat.appendChild(messageElement);
+        chat.scrollTop = chat.scrollHeight;
+    }
+
+    connect();
+</script>
+</body>
+</html>
