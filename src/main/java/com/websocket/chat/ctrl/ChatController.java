@@ -1,25 +1,52 @@
 package com.websocket.chat.ctrl;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.websocket.chat.handler.ChatWebSocketHandler;
 import com.websocket.chat.vo.ChatMessage;
-import org.springframework.messaging.handler.annotation.MessageMapping;
-import org.springframework.messaging.handler.annotation.SendTo;
-import org.springframework.stereotype.Controller;
-import org.springframework.web.util.HtmlUtils;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.bind.annotation.RestController;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.logging.Logger;
 
-@Controller
+@RestController
 public class ChatController {
 
-    @MessageMapping("/chat.sendMessage")
-    @SendTo("/topic/public")
-    public ChatMessage sendMessage(ChatMessage chatMessage) {
-        // 메시지를 처리하고, 필요한 경우 예외 처리를 추가
+    private static final Logger logger = Logger.getLogger(ChatController.class.getName());
+    private final ChatWebSocketHandler chatWebSocketHandler;
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
+    public ChatController(ChatWebSocketHandler chatWebSocketHandler) {
+        this.chatWebSocketHandler = chatWebSocketHandler;
+    }
+
+    @PostMapping("/sendMessage")
+    public @ResponseBody Map<String, String> sendMessage(@RequestBody ChatMessage chatMessage) throws Exception {
+        logger.info("Received message: " + chatMessage.getContent());
+
+        // 서버에서 추가할 데이터
+        chatMessage.setSender("ServerAssignedUserId"); // 예: 실제 사용자의 ID
+        chatMessage.setTimestamp(new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date()));
+
+        // JSON 형식으로 변환
+        String message = objectMapper.writeValueAsString(chatMessage);
+
+        // WebSocket을 통해 메시지 브로드캐스트
         try {
-            chatMessage.setContent(HtmlUtils.htmlEscape(chatMessage.getContent()));
-            return chatMessage;
+            chatWebSocketHandler.broadcastMessage(message);
+            logger.info("Message broadcasted successfully");
         } catch (Exception e) {
-            // 예외 발생 시 로그 출력
-            e.printStackTrace();
-            return new ChatMessage(); // 빈 메시지 반환 (또는 적절한 예외 처리)
+            logger.severe("Failed to broadcast message: " + e.getMessage());
+            throw e;
         }
+
+        // 응답으로 성공 메시지 반환
+        Map<String, String> response = new HashMap<>();
+        response.put("status", "success");
+        return response;
     }
 }

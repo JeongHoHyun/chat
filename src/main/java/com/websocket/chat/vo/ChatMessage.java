@@ -8,4 +8,5 @@ import lombok.Setter;
 public class ChatMessage {
     private String content;
     private String sender;
+    private String timestamp;
 }
